@@ -9,6 +9,6 @@ Jos haluat testata:
 
 -Käynnistä run.bat tai ArkeaBot.py koodieditorin kautta
 
--Jos antaa erroria huuda einolle
+-Jos antaa erroria huuda EinoFin#4389
 
 -Muokkaa koodia ja tee branch :D
