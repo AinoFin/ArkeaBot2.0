@@ -2,7 +2,7 @@
 import discord
 import xml.etree.ElementTree as ET
 import requests
-from discord.ext import commands, tasks
+from discord.ext import tasks
 import datetime
 
 jälkiruuat=["Korvapuusti","Pikkupulla","Omenavanukas"]
@@ -70,8 +70,6 @@ async def on_ready():
 jakaja=0
 summat=0
 keskiarvo=0
-
-
 
 #tekee ja lähettää embedin ja pingin (en osaa tehdä paremmin) kun käytetään !viikonlista
 @client.event
