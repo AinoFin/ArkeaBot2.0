@@ -2,14 +2,16 @@
 import discord
 import xml.etree.ElementTree as ET
 import requests
-import json
+from discord.ext import commands, tasks
+import datetime
 
-jälkiruuat=["Korvapuusti","Pikkupulla"]
+jälkiruuat=["Korvapuusti","Pikkupulla","Omenavanukas"]
 
 #ottaa tokenin config jsonista
-with open("./config.json") as config:
-  configData = json.load(config)
-token = configData["Token"]
+def lueToken(tokentiedosto):
+    with open(tokentiedosto, "r") as tiedosto:
+        return tiedosto.read()
+token = lueToken("token.txt")
 
 #discord intentit
 intents = discord.Intents.default()
@@ -50,6 +52,11 @@ def takeAway():
     #viikonRuuat["ti"][1] on Tiistai kasvisruoka
     #päivina ma-pe ja joka päivälle kasvis ja normi ruoka
 
+@tasks.loop(time=datetime.time(hour=22))
+async def uusiruokaTask():
+    channel = client.get_channel(969179339675541515)
+    await channel.send("moi")
+    takeAway()
 
 #login ja asettaa aktiviteetin (ja palauttaa ruuat)
 @client.event
@@ -57,11 +64,14 @@ async def on_ready():
     print(f'Logged in as {client.user}')
     await client.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="ruokalistoja"))
     takeAway()
+    uusiruokaTask.start()
 
 #jakaja, summa ja keskiarvo definattu
 jakaja=0
 summat=0
 keskiarvo=0
+
+
 
 #tekee ja lähettää embedin ja pingin (en osaa tehdä paremmin) kun käytetään !viikonlista
 @client.event
@@ -156,7 +166,7 @@ async def on_reaction_add(reaction, user):
       if embeds:
           embed = embeds[0]
       else:
-            return
+            pass
       embed.set_footer(text=keskiarvo)
       await reaction.message.edit(embed=embed)
     elif reaction.emoji == "1️⃣" and not user.bot:
@@ -168,7 +178,7 @@ async def on_reaction_add(reaction, user):
       if embeds:
           embed = embeds[0]
       else:
-            return
+            pass
       embed.set_footer(text=keskiarvo)
       await reaction.message.edit(embed=embed)
     elif reaction.emoji == "2️⃣" and not user.bot:
@@ -180,7 +190,7 @@ async def on_reaction_add(reaction, user):
       if embeds:
           embed = embeds[0]
       else:
-            return
+            pass
       embed.set_footer(text=keskiarvo)
       await reaction.message.edit(embed=embed)
     elif reaction.emoji == "3️⃣" and not user.bot:
@@ -192,7 +202,7 @@ async def on_reaction_add(reaction, user):
       if embeds:
           embed = embeds[0]
       else:
-            return
+            pass
       embed.set_footer(text=keskiarvo)
       await reaction.message.edit(embed=embed)
     elif reaction.emoji == "4️⃣" and not user.bot:
@@ -204,7 +214,7 @@ async def on_reaction_add(reaction, user):
       if embeds:
           embed = embeds[0]
       else:
-            return
+            pass
       embed.set_footer(text=keskiarvo)
       await reaction.message.edit(embed=embed)
     elif reaction.emoji == "5️⃣" and not user.bot:
@@ -216,7 +226,7 @@ async def on_reaction_add(reaction, user):
       if embeds:
           embed = embeds[0]
       else:
-            return
+            pass
       embed.set_footer(text=keskiarvo)
       await reaction.message.edit(embed=embed)
 
@@ -315,6 +325,8 @@ async def on_reaction_remove(reaction, user):
             return
       embed.set_footer(text=keskiarvo)
       await reaction.message.edit(embed=embed)
+
+
 
 #kirjautuu bottiin tokenilla (katso config.json)
 client.run(token)
