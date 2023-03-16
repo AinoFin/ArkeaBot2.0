@@ -5,7 +5,7 @@ Jos haluat testata:
 
 -Tee botti täällä: https://discord.com/developers/applications
 
--Laita botin token config.json tiedostoon
+-Tee ja botin token token.txt tiedostoon
 
 -Käynnistä run.bat tai ArkeaBot.py koodieditorin kautta
 
