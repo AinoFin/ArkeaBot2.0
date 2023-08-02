@@ -5,7 +5,7 @@ import requests
 from discord.ext import tasks
 import datetime
 
-jälkiruuat=["Korvapuusti","Pikkupulla","Omenavanukas"]
+jälkiruuat=["Korvapuusti","Pikkupulla","Omenavanukas","Pannukakku","Vadelmamunkki","Marjakimara","Puolukka-omenakiisseli"]
 
 #ottaa tokenin config jsonista
 def lueToken(tokentiedosto):
@@ -86,61 +86,40 @@ async def on_message(message):
         embed.set_thumbnail(url="https://media.discordapp.net/attachments/969179339675541515/1062375756568743956/Arkealogo.png") #arkealogo
         embed.add_field(name="Maanantain lounas:", value=kaikkiRuoka["ma"][0], inline=True) #maanantai
         embed.add_field(name="Maanantain kasvislounas:", value=kaikkiRuoka["ma"][1], inline=True)
-        for jälkiruoka in jälkiruuat:
-          if jälkiruoka in kaikkiRuoka["ma"][0]: #kattoo onko pullaa, jos on, rivin kolmas field ei ole tyhjä
-            embed.add_field(name="Jälkiruokaa?!?!?", value="<:liikunnanitsenaiset:676730906802782228>", inline=True)
-            tyhjäMA=False
-            break
-          else:
-            tyhjäMA=True
-        if tyhjäMA==True:
+        if any(jr in kaikkiRuoka["ma"][0] for jr in jälkiruuat): #kattoo onko pullaa, jos on, rivin kolmas field ei ole tyhjä
+          embed.add_field(name="Jälkiruokaa?!?!?", value="<:liikunnanitsenaiset:676730906802782228>", inline=True)
+        else:
           embed.add_field(name="", value="", inline=True)
         embed.add_field(name="Tiistain lounas:", value=kaikkiRuoka["ti"][0], inline=True) #tiistai
         embed.add_field(name="Tiistain kasvislounas:", value=kaikkiRuoka["ti"][1], inline=True)
-        for jälkiruoka in jälkiruuat:
-          if jälkiruoka in kaikkiRuoka["ti"][0]:
-            embed.add_field(name="ruokalassa on jälkiruokaa:", value="*visible happiness*", inline=True)
-            tyhjäTI=False
-            break
-          else:
-            tyhjäTI=True
-        if tyhjäTI==True:
+        if any(jr in kaikkiRuoka["ti"][0] for jr in jälkiruuat):
+          embed.add_field(name="ruokalassa on jälkiruokaa:", value="*visible happiness*", inline=True)
+        else:  
           embed.add_field(name="", value="", inline=True)
         embed.add_field(name="Keskiviikon lounas:", value=kaikkiRuoka["ke"][0], inline=True) #keskiviikko
         embed.add_field(name="Keskiviikon kasvislounas:", value=kaikkiRuoka["ke"][1], inline=True)
-        for jälkiruoka in jälkiruuat:
-          if jälkiruoka in kaikkiRuoka["ke"][0]:
-            embed.add_field(name="jälkiruokaa tarjolla", value="<a:PoggersRow:519167666985107456>", inline=True)
-            tyhjäKE=False
-            break
-          else:
-            tyhjäKE=True
-        if tyhjäKE==True:
+        if any(jr in kaikkiRuoka["ke"][0] for jr in jälkiruuat):
+          embed.add_field(name="jälkiruokaa tarjolla", value="<a:PoggersRow:519167666985107456>", inline=True)
+        else:  
           embed.add_field(name="", value="", inline=True)
         embed.add_field(name="Torstain lounas:", value=kaikkiRuoka["to"][0], inline=True) #torstai
         embed.add_field(name="Torstain kasvislounas:", value=kaikkiRuoka["to"][1], inline=True)
-        for jälkiruoka in jälkiruuat:
-          if jälkiruoka in kaikkiRuoka["to"][0]:
-            embed.add_field(name="<:1605:677063766487203840>", value="owo uwu jee jälkiruokaa", inline=True)
-            tyhjäTO=False
-            break
-          else:
-            tyhjäTO=True
-        if tyhjäTO==True:
+        if any(jr in kaikkiRuoka["to"][0] for jr in jälkiruuat):
+          embed.add_field(name="<:1605:677063766487203840>", value="owo uwu jee jälkiruokaa", inline=True)
+        else:  
           embed.add_field(name="", value="", inline=True)
         embed.add_field(name="Perjantain lounas:", value=kaikkiRuoka["pe"][0], inline=True) #perjantai
         embed.add_field(name="Perjantain kasvislounas:", value=kaikkiRuoka["pe"][1], inline=True)
-        for jälkiruoka in jälkiruuat:
-          if jälkiruoka in kaikkiRuoka["pe"][0]:
-            embed.add_field(name="me when jälkiruoka", value="<:malsionilonen:921328363581341696>", inline=True)
-            tyhjäPE=False
-            break
-          else:
-            tyhjäPE=True
-        if tyhjäPE==True:
+        if any(jr in kaikkiRuoka["pe"][0] for jr in jälkiruuat):
+          embed.add_field(name="me when jälkiruoka", value="<:malsionilonen:921328363581341696>", inline=True)
+        else:  
           embed.add_field(name="", value="", inline=True)
         if message.channel.id==1066993762087219271:
           embed.set_footer(text=keskiarvo) #keskiarvo aluksi nolla
+        elif datetime.date.today().isocalendar().week < 22:
+          embed.set_footer(text=str(22-datetime.date.today().isocalendar().week) + " viikkoa kesälomaan")
+        else: #datetime.date.today().isocalendar().week > 22 and datetime.date.today().isocalendar().week < datetime.date(datetime.date.today().year,12,22).isocalendar().week:
+          embed.set_footer(text=str(datetime.date(datetime.date.today().year,12,22).isocalendar().week-datetime.date.today().isocalendar().week) + " viikkoa joululomaan")
         msg=await message.channel.send("<:nomnom_onni:1020763115266248774>",embed=embed) #lähettää onnin + embedin samassa viestissä
         if message.channel.id==1066993762087219271:
           await msg.add_reaction("0️⃣")
@@ -150,181 +129,72 @@ async def on_message(message):
           await msg.add_reaction("4️⃣")
           await msg.add_reaction("5️⃣")
 
+async def lisääkeskiarvo(reaction,embed,summat,keskiarvo,jakaja,uusiarvo):
+      jakaja+=1
+      summat+=uusiarvo
+      keskiarvo=(summat)/jakaja
+      keskiarvo=round(keskiarvo, 2)
+      embed.set_footer(text=keskiarvo)
+      await reaction.message.edit(embed=embed)
+      return keskiarvo,jakaja,summat
 #käyttäjä lisää reaktion
 @client.event
 async def on_reaction_add(reaction, user):
     global jakaja
     global summat
     global keskiarvo
+    embeds = reaction.message.embeds
+    if embeds:
+      embed = embeds[0]
+    else:
+      return
     if reaction.emoji == "0️⃣" and not user.bot:
-      jakaja+=1
-      keskiarvo=(summat)/jakaja
-      keskiarvo=round(keskiarvo, 2)
-      embeds = reaction.message.embeds
-      if embeds:
-          embed = embeds[0]
-      else:
-            pass
-      embed.set_footer(text=keskiarvo)
-      await reaction.message.edit(embed=embed)
+      keskiarvo,jakaja,summat = await lisääkeskiarvo(reaction,embed,summat,keskiarvo,jakaja,0)
     elif reaction.emoji == "1️⃣" and not user.bot:
-      jakaja+=1
-      summat+=1
-      keskiarvo=(summat)/jakaja
-      keskiarvo=round(keskiarvo, 2)
-      embeds = reaction.message.embeds
-      if embeds:
-          embed = embeds[0]
-      else:
-            pass
-      embed.set_footer(text=keskiarvo)
-      await reaction.message.edit(embed=embed)
+      keskiarvo,jakaja,summat = await lisääkeskiarvo(reaction,embed,summat,keskiarvo,jakaja,1)
     elif reaction.emoji == "2️⃣" and not user.bot:
-      jakaja+=1
-      summat+=2
-      keskiarvo=(summat)/jakaja
-      keskiarvo=round(keskiarvo, 2)
-      embeds = reaction.message.embeds
-      if embeds:
-          embed = embeds[0]
-      else:
-            pass
-      embed.set_footer(text=keskiarvo)
-      await reaction.message.edit(embed=embed)
+      keskiarvo,jakaja,summat = await lisääkeskiarvo(reaction,embed,summat,keskiarvo,jakaja,2)
     elif reaction.emoji == "3️⃣" and not user.bot:
-      jakaja+=1
-      summat+=3
-      keskiarvo=(summat)/jakaja
-      keskiarvo=round(keskiarvo, 2)
-      embeds = reaction.message.embeds
-      if embeds:
-          embed = embeds[0]
-      else:
-            pass
-      embed.set_footer(text=keskiarvo)
-      await reaction.message.edit(embed=embed)
+      keskiarvo,jakaja,summat = await lisääkeskiarvo(reaction,embed,summat,keskiarvo,jakaja,3)
     elif reaction.emoji == "4️⃣" and not user.bot:
-      jakaja+=1
-      summat+=4
-      keskiarvo=(summat)/jakaja
-      keskiarvo=round(keskiarvo, 2)
-      embeds = reaction.message.embeds
-      if embeds:
-          embed = embeds[0]
-      else:
-            pass
-      embed.set_footer(text=keskiarvo)
-      await reaction.message.edit(embed=embed)
+      keskiarvo,jakaja,summat = await lisääkeskiarvo(reaction,embed,summat,keskiarvo,jakaja,4)
     elif reaction.emoji == "5️⃣" and not user.bot:
-      jakaja=+1
-      summat+=5
-      keskiarvo=(summat)/jakaja
-      keskiarvo=round(keskiarvo, 2)
-      embeds = reaction.message.embeds
-      if embeds:
-          embed = embeds[0]
+      keskiarvo,jakaja,summat = await lisääkeskiarvo(reaction,embed,summat,keskiarvo,jakaja,5)
+
+async def poistokeskiarvo(reaction,embed,summat,keskiarvo,jakaja,uusiarvo):
+      jakaja-=1
+      summat-=uusiarvo
+      if jakaja!=0:
+        keskiarvo=(summat)/jakaja
       else:
-            pass
+        keskiarvo-=uusiarvo
+      keskiarvo=round(keskiarvo, 2)
       embed.set_footer(text=keskiarvo)
       await reaction.message.edit(embed=embed)
-
+      return keskiarvo,jakaja,summat
 #käyttäjä poistaa reaktion (if ja else sen takia että ei tule nollalla jakaminen)
 @client.event
 async def on_reaction_remove(reaction, user):
     global jakaja
     global summat
     global keskiarvo
+    embeds = reaction.message.embeds
+    if embeds:
+      embed = embeds[0]
+    else:
+      return
     if reaction.emoji == "0️⃣" and not user.bot:
-      jakaja-=1
-      if jakaja!=0:
-        keskiarvo=(summat)/jakaja
-      else:
-        pass
-      keskiarvo=round(keskiarvo, 2)
-      embeds = reaction.message.embeds
-      if embeds:
-          embed = embeds[0]
-      else:
-            return
-      embed.set_footer(text=keskiarvo)
-      await reaction.message.edit(embed=embed)
+      keskiarvo,jakaja,summat = await poistokeskiarvo(reaction,embed,summat,keskiarvo,jakaja,0)
     elif reaction.emoji == "1️⃣" and not user.bot:
-      jakaja-=1
-      summat-=1
-      if jakaja!=0:
-        keskiarvo=(summat)/jakaja
-      else:
-        keskiarvo-=1
-      keskiarvo=round(keskiarvo, 2)
-      embeds = reaction.message.embeds
-      if embeds:
-          embed = embeds[0]
-      else:
-            return
-      embed.set_footer(text=keskiarvo)
-      await reaction.message.edit(embed=embed)
+      keskiarvo,jakaja,summat = await poistokeskiarvo(reaction,embed,summat,keskiarvo,jakaja,1)
     elif reaction.emoji == "2️⃣" and not user.bot:
-      jakaja-=1
-      summat-=2
-      if jakaja!=0:
-        keskiarvo=(summat)/jakaja
-      else:
-        keskiarvo-=2
-      keskiarvo=round(keskiarvo, 2)
-      embeds = reaction.message.embeds
-      if embeds:
-          embed = embeds[0]
-      else:
-            return
-      embed.set_footer(text=keskiarvo)
-      await reaction.message.edit(embed=embed)
+      keskiarvo,jakaja,summat = await poistokeskiarvo(reaction,embed,summat,keskiarvo,jakaja,2)
     elif reaction.emoji == "3️⃣" and not user.bot:
-      jakaja-=1
-      summat-=3
-      if jakaja!=0:
-        keskiarvo=(summat)/jakaja
-      else:
-        keskiarvo-=3
-      keskiarvo=round(keskiarvo, 2)
-      embeds = reaction.message.embeds
-      if embeds:
-          embed = embeds[0]
-      else:
-            return
-      embed.set_footer(text=keskiarvo)
-      await reaction.message.edit(embed=embed)
+      keskiarvo,jakaja,summat = await poistokeskiarvo(reaction,embed,summat,keskiarvo,jakaja,3)
     elif reaction.emoji == "4️⃣" and not user.bot:
-      jakaja-=1
-      summat-=4
-      if jakaja!=0:
-        keskiarvo=(summat)/jakaja
-      else:
-        keskiarvo-=4
-      keskiarvo=round(keskiarvo, 2)
-      embeds = reaction.message.embeds
-      if embeds:
-          embed = embeds[0]
-      else:
-            return
-      embed.set_footer(text=keskiarvo)
-      await reaction.message.edit(embed=embed)
+      keskiarvo,jakaja,summat = await poistokeskiarvo(reaction,embed,summat,keskiarvo,jakaja,4)
     elif reaction.emoji == "5️⃣" and not user.bot:
-      jakaja-=1
-      summat-=5
-      if jakaja!=0:
-        keskiarvo=(summat)/jakaja
-      else:
-        keskiarvo-=5
-      keskiarvo=round(keskiarvo, 2)
-      embeds = reaction.message.embeds
-      if embeds:
-          embed = embeds[0]
-      else:
-            return
-      embed.set_footer(text=keskiarvo)
-      await reaction.message.edit(embed=embed)
-
-
+      keskiarvo,jakaja,summat = await poistokeskiarvo(reaction,embed,summat,keskiarvo,jakaja,5)
 
 #kirjautuu bottiin tokenilla (katso config.json)
 client.run(token)
