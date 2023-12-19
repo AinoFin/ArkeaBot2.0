@@ -4,8 +4,9 @@ import xml.etree.ElementTree as ET
 import requests
 from discord.ext import tasks
 import datetime
+from random import randint
 
-jälkiruuat=["Korvapuusti","Pikkupulla","Omenavanukas","Pannukakku","Vadelmamunkki","Marjakimara","Puolukka-omenakiisseli"]
+jälkiruuat=["Korvapuusti","Pikkupulla","Omenavanukas","Pannukakku","Vadelmamunkki","Marjakimara","Puolukka-omenakiisseli","Mehevä omenapiirakka"]
 
 #ottaa tokenin config jsonista
 def lueToken(tokentiedosto):
@@ -29,34 +30,43 @@ listaURL = "https://menu.kaarea.fi/KaareaAromieMenus/FI/Default/Kaarea/KERTTLU/R
 viikonRuuat = {}
 kaikkiRuoka = {}
 def takeAway():
-  file = requests.get(listaURL)
+  viikonRuuat.clear()
+  kaikkiRuoka.clear()
+  file = requests.get(listaURL,verify=False)
   root=ET.fromstring(file.content)
   for item in root[0].iter("item"):
     paiva = item[0].text.split(" ")[0]
 
     ruuat = item[1].text
   
-    ruoka = ruuat.split("<")[0]
-    kasvis = ruuat.split(">")[1]
+    ruoka = ruuat.split("<br><")[0]
+    kasvis = ruuat.split("<br><br>")[1]
 
-    ruokaLyhyt = ruoka[ruoka.find(":") + 2:ruoka.find(")") + 1]
-    kasvisLyhyt = kasvis[kasvis.find(":") + 2:kasvis.find(")") + 1]
+    ruokaLyhyt = ruoka[ruoka.find(":")+2:ruoka.find(")") + 1]
+    kasvisLyhyt = kasvis[kasvis.find(":")+2:kasvis.find(")") + 1]
 
-    ruokaIso = ruoka[ruoka.find(":") + 2:len(ruoka)]
-    kasvisIso = kasvis[kasvis.find(":") + 2:len(kasvis)]
+    ruokaIso = ruoka[ruoka.find(":") + 1:len(ruoka)]
+    kasvisIso = kasvis[kasvis.find(":") + 1:len(kasvis)]
 
     viikonRuuat[paiva] = [ruokaLyhyt, kasvisLyhyt] #viikon kaikki pääruuat ja niiden merkit (gluteeniton, laktoositon jne)
-    kaikkiRuoka[paiva] = [ruokaIso, kasvisIso] #viikon kaikki ruuat, ei vaa pääruuat (tarvitaan pullacheckiin ja dmlistaan)
+    kaikkiRuoka[paiva] = [ruokaIso, kasvisIso] #viikon kaikki ruuat, ei vaa pääruuat (tarvitaan pullacheckiin)
   return viikonRuuat,kaikkiRuoka
     #viikonRuuat["ma"][0] on Maanantai normiruoka
     #viikonRuuat["ti"][1] on Tiistai kasvisruoka
     #päivina ma-pe ja joka päivälle kasvis ja normi ruoka
 
-@tasks.loop(time=datetime.time(hour=22))
+timez=datetime.timezone(datetime.timedelta(hours=2))
+time=datetime.time(hour=7,tzinfo=timez)
+
+@tasks.loop(time=time)
 async def uusiruokaTask():
-    channel = client.get_channel(969179339675541515)
-    await channel.send("moi")
+    ruokaviestit.clear()
     takeAway()
+    if datetime.date.today().weekday()==0:
+      await viikonlistaviesti(1066993762087219271)
+      await viikonlistaviesti(359247891958726656)
+      await viikonlistaviesti(1139454829362688070)
+    
 
 #login ja asettaa aktiviteetin (ja palauttaa ruuat)
 @client.event
@@ -66,62 +76,98 @@ async def on_ready():
     takeAway()
     uusiruokaTask.start()
 
-#jakaja, summa ja keskiarvo definattu
-jakaja=0
-summat=0
-keskiarvo=0
+ruokaviestit = {}
 
-#tekee ja lähettää embedin ja pingin (en osaa tehdä paremmin) kun käytetään !viikonlista
-@client.event
-async def on_message(message):
-      #viikonlista komento
-      if message.content.startswith('!viikonlista'):
-        #ict 21 ping
-        if message.channel.id==1066993762087219271:
-          await message.channel.send("<@&977148653812736010>")
+#ruokaviesti class
+class Viesti:
+   def __init__(self) -> None:
+      self.keskiarvo = 0 #keskiarvo, summa ja jakaja nollassa alussa
+      self.summa = 0
+      self.jakaja = 0
+
+async def lisääkeskiarvo(viesti: Viesti,reaction,embed,uusiarvo):
+  viesti.jakaja+=1 #reaktioiden määrä kasvaa
+  viesti.summa+=uusiarvo #summaan lisätään uusi arvo
+  viesti.keskiarvo=(viesti.summa)/viesti.jakaja #lasketaan keskiarvo
+  viesti.keskiarvo=round(viesti.keskiarvo, 2) #pyöristys alas
+  embed.set_footer(text=viesti.keskiarvo) #vaihdetaan footer
+  await reaction.message.edit(embed=embed) #editataan viestiä
+
+async def poistakeskiarvo(viesti: Viesti,reaction,embed,uusiarvo):
+  viesti.jakaja-=1 #reaktioiden määrä laskee
+  viesti.summa-=uusiarvo #poistetaan uusi arvo
+  if viesti.jakaja!=0: #jos jakaja on nolla ei koiteta jakaa sillä
+    viesti.keskiarvo=(viesti.summa)/viesti.jakaja
+  else:
+    viesti.keskiarvo-=uusiarvo
+  viesti.keskiarvo=round(viesti.keskiarvo, 2)
+  embed.set_footer(text=viesti.keskiarvo)
+  await reaction.message.edit(embed=embed)
+
+päivät={ #päivät + mitä se tarkoittaa
+  1:["Maanantain","ma"],
+  2:["Tiistain","ti"],
+  3:["Keskiviikon","ke"],
+  4:["Torstain","to"],
+  5:["Perjantain","pe"],
+}
+
+async def viikonlistaviesti(lähetysid): #viikonlista funktiona jotta voi lähettää automaattisesti
+        kanava=client.get_channel(lähetysid) #kanavaa tarvitaan viestin lähettämiseen
+          #ict 21 ping
+        if lähetysid==1066993762087219271:
+          await kanava.send("<@&977148653812736010>")
         #ict united ping
-        elif message.channel.id==359247891958726656:
-          await message.channel.send("<@&977149820886200381>")
+        elif lähetysid==359247891958726656:
+          await kanava.send("<@&977149820886200381>")
+        #ict pirated ping
+        elif lähetysid==1139454829362688070:
+          await kanava.send("<@&1165919588559622184>")
+        
         embed=discord.Embed(color=0x76b52f) #värin vaihto + embed defination
         embed.set_thumbnail(url="https://media.discordapp.net/attachments/969179339675541515/1062375756568743956/Arkealogo.png") #arkealogo
-        embed.add_field(name="Maanantain lounas:", value=kaikkiRuoka["ma"][0], inline=True) #maanantai
-        embed.add_field(name="Maanantain kasvislounas:", value=kaikkiRuoka["ma"][1], inline=True)
-        if any(jr in kaikkiRuoka["ma"][0] for jr in jälkiruuat): #kattoo onko pullaa, jos on, rivin kolmas field ei ole tyhjä
-          embed.add_field(name="Jälkiruokaa?!?!?", value="<:liikunnanitsenaiset:676730906802782228>", inline=True)
-        else:
-          embed.add_field(name="", value="", inline=True)
-        embed.add_field(name="Tiistain lounas:", value=kaikkiRuoka["ti"][0], inline=True) #tiistai
-        embed.add_field(name="Tiistain kasvislounas:", value=kaikkiRuoka["ti"][1], inline=True)
-        if any(jr in kaikkiRuoka["ti"][0] for jr in jälkiruuat):
-          embed.add_field(name="ruokalassa on jälkiruokaa:", value="*visible happiness*", inline=True)
-        else:  
-          embed.add_field(name="", value="", inline=True)
-        embed.add_field(name="Keskiviikon lounas:", value=kaikkiRuoka["ke"][0], inline=True) #keskiviikko
-        embed.add_field(name="Keskiviikon kasvislounas:", value=kaikkiRuoka["ke"][1], inline=True)
-        if any(jr in kaikkiRuoka["ke"][0] for jr in jälkiruuat):
-          embed.add_field(name="jälkiruokaa tarjolla", value="<a:PoggersRow:519167666985107456>", inline=True)
-        else:  
-          embed.add_field(name="", value="", inline=True)
-        embed.add_field(name="Torstain lounas:", value=kaikkiRuoka["to"][0], inline=True) #torstai
-        embed.add_field(name="Torstain kasvislounas:", value=kaikkiRuoka["to"][1], inline=True)
-        if any(jr in kaikkiRuoka["to"][0] for jr in jälkiruuat):
-          embed.add_field(name="<:1605:677063766487203840>", value="owo uwu jee jälkiruokaa", inline=True)
-        else:  
-          embed.add_field(name="", value="", inline=True)
-        embed.add_field(name="Perjantain lounas:", value=kaikkiRuoka["pe"][0], inline=True) #perjantai
-        embed.add_field(name="Perjantain kasvislounas:", value=kaikkiRuoka["pe"][1], inline=True)
-        if any(jr in kaikkiRuoka["pe"][0] for jr in jälkiruuat):
-          embed.add_field(name="me when jälkiruoka", value="<:malsionilonen:921328363581341696>", inline=True)
-        else:  
-          embed.add_field(name="", value="", inline=True)
-        if message.channel.id==1066993762087219271:
-          embed.set_footer(text=keskiarvo) #keskiarvo aluksi nolla
-        elif datetime.date.today().isocalendar().week < 22:
+        
+        for i in range(1,6):
+          embed.add_field(name=päivät[i][0]+" lounas:", value=kaikkiRuoka[päivät[i][1]][0], inline=True) #Lisää jokaisen päivän 2 ruokafieldiä
+          embed.add_field(name=päivät[i][0]+" kasvislounas:", value=kaikkiRuoka[päivät[i][1]][1], inline=True)
+          if any(jr in kaikkiRuoka[päivät[i][1]][0] for jr in jälkiruuat): #kattoo onko pullaa, jos on, rivin kolmas field ei ole tyhjä
+            match randint(0,4): #random viesti jälkiruuasta
+              case 0:
+                  tieto="Jälkiruokaa?!?!?"
+              case 1:
+                  tieto="ruokalassa on jälkiruokaa:"
+              case 2:
+                  tieto="jälkiruokaa tarjolla"
+              case 3:
+                  tieto="owo uwu jee jälkiruokaa"
+              case 4:
+                  tieto="me when jälkiruoka"
+
+            match randint(0,4): #random reaktio jälkiruuasta
+              case 0:
+                  reaktio="<:liikunnanitsenaiset:676730906802782228>"
+              case 1:
+                  reaktio="*visible happiness*"
+              case 2:
+                  reaktio="<a:PoggersRow:519167666985107456>"
+              case 3:
+                  reaktio="<:1605:677063766487203840>"
+              case 4:
+                  reaktio="<:malsionilonen:921328363581341696>"
+            embed.add_field(name=tieto, value=reaktio, inline=True) #lisätään jälkiruokafield
+          else:                      #jos jälkiruokaa ei ole, 
+            embed.add_field(name="", value="", inline=True) #lisätään tyhjä field 
+
+        if lähetysid==1066993762087219271: #jos lähetetään ict21 servulle
+          embed.set_footer(text=0) #keskiarvo aluksi nolla
+        elif datetime.date.today().isocalendar().week < 22: #jos on kesäkausi
           embed.set_footer(text=str(22-datetime.date.today().isocalendar().week) + " viikkoa kesälomaan")
-        else: #datetime.date.today().isocalendar().week > 22 and datetime.date.today().isocalendar().week < datetime.date(datetime.date.today().year,12,22).isocalendar().week:
+        else: #jos on talvikausi
           embed.set_footer(text=str(datetime.date(datetime.date.today().year,12,22).isocalendar().week-datetime.date.today().isocalendar().week) + " viikkoa joululomaan")
-        msg=await message.channel.send("<:nomnom_onni:1020763115266248774>",embed=embed) #lähettää onnin + embedin samassa viestissä
-        if message.channel.id==1066993762087219271:
+        msg=await kanava.send("<:nomnom_onni:1020763115266248774>",embed=embed) #lähettää onnin + embedin samassa viestissä
+        if lähetysid==1066993762087219271: #jos lähetetään ict21 servulle
+          ruokaviesti = Viesti() #viestiobjekti
+          ruokaviestit[msg.id] = ruokaviesti #lisätään objekti dictiin
           await msg.add_reaction("0️⃣")
           await msg.add_reaction("1️⃣") #lisätään reaktiot
           await msg.add_reaction("2️⃣")
@@ -129,72 +175,61 @@ async def on_message(message):
           await msg.add_reaction("4️⃣")
           await msg.add_reaction("5️⃣")
 
-async def lisääkeskiarvo(reaction,embed,summat,keskiarvo,jakaja,uusiarvo):
-      jakaja+=1
-      summat+=uusiarvo
-      keskiarvo=(summat)/jakaja
-      keskiarvo=round(keskiarvo, 2)
-      embed.set_footer(text=keskiarvo)
-      await reaction.message.edit(embed=embed)
-      return keskiarvo,jakaja,summat
+#on message, kun saa viestin
+@client.event
+async def on_message(message):
+      #viikonlista komento
+      if message.content.startswith('!viikonlista'): 
+        await viikonlistaviesti(message.channel.id) #lähettää viestin
+
 #käyttäjä lisää reaktion
 @client.event
 async def on_reaction_add(reaction, user):
-    global jakaja
-    global summat
-    global keskiarvo
-    embeds = reaction.message.embeds
-    if embeds:
+    embeds = reaction.message.embeds #ottaa viestin embedit
+    if embeds: #jos embedejä on nii ottaa ekan
       embed = embeds[0]
     else:
-      return
-    if reaction.emoji == "0️⃣" and not user.bot:
-      keskiarvo,jakaja,summat = await lisääkeskiarvo(reaction,embed,summat,keskiarvo,jakaja,0)
+      return #muuten cancelaa
+    if reaction.message.id not in ruokaviestit: # tarkistaa onko viesti ruokaviesti olemassa
+      return #jos ei oo olemassa cancelaa
+    viesti: Viesti = ruokaviestit[reaction.message.id] #ottaa viestin mihin reagoitiin
+    if reaction.emoji == "0️⃣" and not user.bot: #emojin + onko käyttäjä botti check
+      await lisääkeskiarvo(viesti,reaction,embed,0)
     elif reaction.emoji == "1️⃣" and not user.bot:
-      keskiarvo,jakaja,summat = await lisääkeskiarvo(reaction,embed,summat,keskiarvo,jakaja,1)
+      await lisääkeskiarvo(viesti,reaction,embed,1)
     elif reaction.emoji == "2️⃣" and not user.bot:
-      keskiarvo,jakaja,summat = await lisääkeskiarvo(reaction,embed,summat,keskiarvo,jakaja,2)
+      await lisääkeskiarvo(viesti,reaction,embed,2)
     elif reaction.emoji == "3️⃣" and not user.bot:
-      keskiarvo,jakaja,summat = await lisääkeskiarvo(reaction,embed,summat,keskiarvo,jakaja,3)
+      await lisääkeskiarvo(viesti,reaction,embed,3)
     elif reaction.emoji == "4️⃣" and not user.bot:
-      keskiarvo,jakaja,summat = await lisääkeskiarvo(reaction,embed,summat,keskiarvo,jakaja,4)
+      await lisääkeskiarvo(viesti,reaction,embed,4)
     elif reaction.emoji == "5️⃣" and not user.bot:
-      keskiarvo,jakaja,summat = await lisääkeskiarvo(reaction,embed,summat,keskiarvo,jakaja,5)
+      await lisääkeskiarvo(viesti,reaction,embed,5)
 
-async def poistokeskiarvo(reaction,embed,summat,keskiarvo,jakaja,uusiarvo):
-      jakaja-=1
-      summat-=uusiarvo
-      if jakaja!=0:
-        keskiarvo=(summat)/jakaja
-      else:
-        keskiarvo-=uusiarvo
-      keskiarvo=round(keskiarvo, 2)
-      embed.set_footer(text=keskiarvo)
-      await reaction.message.edit(embed=embed)
-      return keskiarvo,jakaja,summat
+
 #käyttäjä poistaa reaktion (if ja else sen takia että ei tule nollalla jakaminen)
 @client.event
 async def on_reaction_remove(reaction, user):
-    global jakaja
-    global summat
-    global keskiarvo
-    embeds = reaction.message.embeds
+    embeds = reaction.message.embeds #samat ku lisääkeskiarvo :D
     if embeds:
       embed = embeds[0]
     else:
       return
+    if reaction.message.id not in ruokaviestit:  # tarkistaa onko viesti ruokaviesti olemassa
+      return
+    viesti: Viesti = ruokaviestit[reaction.message.id]
     if reaction.emoji == "0️⃣" and not user.bot:
-      keskiarvo,jakaja,summat = await poistokeskiarvo(reaction,embed,summat,keskiarvo,jakaja,0)
+      await poistakeskiarvo(viesti,reaction,embed,0)
     elif reaction.emoji == "1️⃣" and not user.bot:
-      keskiarvo,jakaja,summat = await poistokeskiarvo(reaction,embed,summat,keskiarvo,jakaja,1)
+      await poistakeskiarvo(viesti,reaction,embed,1)
     elif reaction.emoji == "2️⃣" and not user.bot:
-      keskiarvo,jakaja,summat = await poistokeskiarvo(reaction,embed,summat,keskiarvo,jakaja,2)
+      await poistakeskiarvo(viesti,reaction,embed,2)
     elif reaction.emoji == "3️⃣" and not user.bot:
-      keskiarvo,jakaja,summat = await poistokeskiarvo(reaction,embed,summat,keskiarvo,jakaja,3)
+      await poistakeskiarvo(viesti,reaction,embed,3)
     elif reaction.emoji == "4️⃣" and not user.bot:
-      keskiarvo,jakaja,summat = await poistokeskiarvo(reaction,embed,summat,keskiarvo,jakaja,4)
+      await poistakeskiarvo(viesti,reaction,embed,4)
     elif reaction.emoji == "5️⃣" and not user.bot:
-      keskiarvo,jakaja,summat = await poistokeskiarvo(reaction,embed,summat,keskiarvo,jakaja,5)
+      await poistakeskiarvo(viesti,reaction,embed,5)
 
-#kirjautuu bottiin tokenilla (katso config.json)
+#kirjautuu bottiin tokenilla (katso token.txt)
 client.run(token)
