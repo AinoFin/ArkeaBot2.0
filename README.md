@@ -3,10 +3,17 @@ Arkean ruokalistoja lähettävä discord bot. Tällä hetkellä hardcodattu kert
 
 Jos haluat testata:
 
--Tee botti täällä: https://discord.com/developers/applications
+- Asenna vähintään Python 3.10
 
--Tee ja botin token token.txt tiedostoon
+- Asenna seuraavat Python-kirjastot:
 
--Käynnistä run.bat tai ArkeaBot.py koodieditorin kautta
+  - discord.py
+  - requests
+    
+- Tee botti täällä: https://discord.com/developers/applications
 
--Muokkaa koodia ja tee branch :D
+- Tee tiedosto nimeltä token.txt ja botin token tiedostoon
+
+- Käynnistä run.bat tai ArkeaBot.py koodieditorin kautta
+
+-Jos ei toimi huuda @EinoFin discordissa :D
