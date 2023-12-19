@@ -12,7 +12,7 @@ Jos haluat testata:
     
 - Tee botti täällä: https://discord.com/developers/applications
 
-- Tee tiedosto nimeltä token.txt ja botin token tiedostoon
+- Laita botin tokeni token.txt tiedostoon
 
 - Käynnistä run.bat tai ArkeaBot.py koodieditorin kautta
 
