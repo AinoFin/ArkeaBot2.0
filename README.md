@@ -14,6 +14,10 @@ Jos haluat testata:
 
 - Laita botin tokeni token.txt tiedostoon
 
+- Mene OAuth välilehden URL gennerator kohtaan, valitse bot ja valitse avautuvasta menusta administrator
+
+- Kopioi generoitu URL, avaa se ja lisää botti palvelimellesi
+
 - Käynnistä run.bat tai ArkeaBot.py koodieditorin kautta
 
 -Jos ei toimi huuda @EinoFin discordissa :D
