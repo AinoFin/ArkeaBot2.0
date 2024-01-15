@@ -6,30 +6,45 @@ from discord.ext import tasks
 import datetime
 from random import randint
 
-jälkiruuat=["Korvapuusti","Pikkupulla","Omenavanukas","Pannukakku","Vadelmamunkki","Marjakimara","Puolukka-omenakiisseli","Mehevä omenapiirakka"]
-
-#ottaa tokenin config jsonista
-def lueToken(tokentiedosto):
-    with open(tokentiedosto, "r") as tiedosto:
-        return tiedosto.read()
-token = lueToken("token.txt")
+jälkiruuat=["Korvapuusti","Pikkupulla","Omenavanukas","Pannukakku","Vadelmamunkki","Marjakimara","Mehevä omenapiirakka"]
 
 #discord intentit
 intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
-intents.dm_messages = True
+intents.message_content = True #näkee viestit
+intents.members = True #näkee käyttäjät
+intents.dm_messages = True #turha, dmiä varten
 
 #bot client
 client = discord.Client(intents=intents)
 
-#asettaa url:n mistä ottaa ruokalistat
-listaURL = "https://menu.kaarea.fi/KaareaAromieMenus/FI/Default/Kaarea/KERTTLU/Rss.aspx?Id=8ca4343a-1842-4584-88a7-172f560d14e4&DateMode=1"
+Guildlista={}
+class ruokaGuild:
+    def __init__(self, listaId, ruokala, arviointi,rooli) -> None:
+      self.listaId=listaId
+      self.ruokala=ruokala
+      self.arviointi=arviointi
+      self.rooli=rooli
+
+def MitäSaisiOlla(uusiUrl):
+  file = requests.get(uusiUrl,verify=False)
+  filestr=(str(file.content))
+  listid=filestr.find("Rss.aspx?Id=")
+  iidee=filestr[listid+12:filestr.find("&",listid)]
+  ruokala=uusiUrl[59:uusiUrl.find("/",59)]
+  return iidee, ruokala
+
+def lueguildlist(tiedosto):
+   f=open(tiedosto,"r")
+   for ruokalat in f.read().splitlines():
+      j=ruokalat.split(" ")
+      guildi=ruokaGuild(j[1],j[2],eval(j[3]),j[4])
+      Guildlista[int(j[0])]=guildi
 
 #ottaa ruuat arkean sivulta ja ottaa turhat pätkät pois arkean sivun tiedostosta ja palauttaa kaikki ruuat ja pääruuat
 viikonRuuat = {}
 kaikkiRuoka = {}
-def takeAway():
+def takeAway(listaId,ruokala):
+  listaURL="https://menu.kaarea.fi/KaareaAromieMenus/FI/Default/Kaarea/"+ruokala+"/Rss.aspx?Id="+listaId+"&DateMode=1"
   viikonRuuat.clear()
   kaikkiRuoka.clear()
   file = requests.get(listaURL,verify=False)
@@ -60,20 +75,17 @@ time=datetime.time(hour=7,tzinfo=timez)
 
 @tasks.loop(time=time)
 async def uusiruokaTask():
-    ruokaviestit.clear()
-    takeAway()
     if datetime.date.today().weekday()==0:
-      await viikonlistaviesti(1066993762087219271)
-      await viikonlistaviesti(359247891958726656)
-      await viikonlistaviesti(1139454829362688070)
-    
+      ruokaviestit.clear()
+      for i in Guildlista:
+        await viikonlistaviesti(i)
 
 #login ja asettaa aktiviteetin (ja palauttaa ruuat)
 @client.event
 async def on_ready():
     print(f'Logged in as {client.user}')
     await client.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="ruokalistoja"))
-    takeAway()
+    lueguildlist("Guilds.txt")
     uusiruokaTask.start()
 
 ruokaviestit = {}
@@ -114,19 +126,15 @@ päivät={ #päivät + mitä se tarkoittaa
 
 async def viikonlistaviesti(lähetysid): #viikonlista funktiona jotta voi lähettää automaattisesti
         kanava=client.get_channel(lähetysid) #kanavaa tarvitaan viestin lähettämiseen
-          #ict 21 ping
-        if lähetysid==1066993762087219271:
-          await kanava.send("<@&977148653812736010>")
-        #ict united ping
-        elif lähetysid==359247891958726656:
-          await kanava.send("<@&977149820886200381>")
-        #ict pirated ping
-        elif lähetysid==1139454829362688070:
-          await kanava.send("<@&1165919588559622184>")
-        
+        try:
+           guil=Guildlista[lähetysid]
+        except:
+           await kanava.send("Kanavaa ei ole rekisteröity!")
+           return
+        await kanava.send(guil.rooli)
         embed=discord.Embed(color=0x76b52f) #värin vaihto + embed defination
         embed.set_thumbnail(url="https://media.discordapp.net/attachments/969179339675541515/1062375756568743956/Arkealogo.png") #arkealogo
-        
+        takeAway(guil.listaId,guil.ruokala)
         for i in range(1,6):
           embed.add_field(name=päivät[i][0]+" lounas:", value=kaikkiRuoka[päivät[i][1]][0], inline=True) #Lisää jokaisen päivän 2 ruokafieldiä
           embed.add_field(name=päivät[i][0]+" kasvislounas:", value=kaikkiRuoka[päivät[i][1]][1], inline=True)
@@ -158,14 +166,14 @@ async def viikonlistaviesti(lähetysid): #viikonlista funktiona jotta voi lähet
           else:                      #jos jälkiruokaa ei ole, 
             embed.add_field(name="", value="", inline=True) #lisätään tyhjä field 
 
-        if lähetysid==1066993762087219271: #jos lähetetään ict21 servulle
+        if guil.arviointi==True: #jos lähetetään arvioitavalle
           embed.set_footer(text=0) #keskiarvo aluksi nolla
         elif datetime.date.today().isocalendar().week < 22: #jos on kesäkausi
           embed.set_footer(text=str(22-datetime.date.today().isocalendar().week) + " viikkoa kesälomaan")
         else: #jos on talvikausi
           embed.set_footer(text=str(datetime.date(datetime.date.today().year,12,22).isocalendar().week-datetime.date.today().isocalendar().week) + " viikkoa joululomaan")
         msg=await kanava.send("<:nomnom_onni:1020763115266248774>",embed=embed) #lähettää onnin + embedin samassa viestissä
-        if lähetysid==1066993762087219271: #jos lähetetään ict21 servulle
+        if guil.arviointi==True: #jos lähetetään ict21 servulle
           ruokaviesti = Viesti() #viestiobjekti
           ruokaviestit[msg.id] = ruokaviesti #lisätään objekti dictiin
           await msg.add_reaction("0️⃣")
@@ -181,6 +189,24 @@ async def on_message(message):
       #viikonlista komento
       if message.content.startswith('!viikonlista'): 
         await viikonlistaviesti(message.channel.id) #lähettää viestin
+      
+      if message.content.startswith('!lisääruokala'):
+          try: 
+            Guildlista[message.channel.id]
+          except:
+             pass
+          else:
+            await message.channel.send("Ruokala on jo rekisteröity!")
+            return
+          splitmessage=message.content.split(" ")
+          uusiID,uusiRuokala=MitäSaisiOlla(str(splitmessage[1]))
+          uusiArviointi=eval(splitmessage[2])
+          uusguild = ruokaGuild(uusiID,uusiRuokala,uusiArviointi,splitmessage[3])
+          Guildlista[message.channel.id]=uusguild
+          guildTiedosto=open("Guilds.txt","a")
+          guildTiedosto.write(str(message.channel.id)+" "+uusiID+" "+uusiRuokala+" "+str(uusiArviointi)+" "+splitmessage[3]+"\n")
+          guildTiedosto.close()
+          await message.channel.send("Guild added"+uusiID+uusiRuokala)
 
 #käyttäjä lisää reaktion
 @client.event
@@ -207,7 +233,7 @@ async def on_reaction_add(reaction, user):
       await lisääkeskiarvo(viesti,reaction,embed,5)
 
 
-#käyttäjä poistaa reaktion (if ja else sen takia että ei tule nollalla jakaminen)
+#käyttäjä poistaa reaktion
 @client.event
 async def on_reaction_remove(reaction, user):
     embeds = reaction.message.embeds #samat ku lisääkeskiarvo :D
@@ -232,4 +258,5 @@ async def on_reaction_remove(reaction, user):
       await poistakeskiarvo(viesti,reaction,embed,5)
 
 #kirjautuu bottiin tokenilla (katso token.txt)
-client.run(token)
+client.run(open("token.txt","r").read())
+
