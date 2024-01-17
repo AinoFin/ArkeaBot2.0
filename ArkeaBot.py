@@ -63,11 +63,14 @@ def takeAway(listaId,ruokala):
     ruokaIso = ruoka[ruoka.find(":") + 1:len(ruoka)]
     kasvisIso = kasvis[kasvis.find(":") + 1:len(kasvis)]
 
-    viikonRuuat[paiva] = [ruokaLyhyt, kasvisLyhyt] #viikon kaikki pääruuat ja niiden merkit (gluteeniton, laktoositon jne)
-    kaikkiRuoka[paiva] = [ruokaIso, kasvisIso] #viikon kaikki ruuat, ei vaa pääruuat (tarvitaan pullacheckiin)
+    viikonRuuat[paiva] = [ruokaLyhyt, kasvisLyhyt] #viikon kaikki pääruuat ja niiden merkit (tällä hetkellä ei käytössä)
+    kaikkiRuoka[paiva] = [ruokaIso, kasvisIso] #viikon kaikki ruuat, ei vaa pääruuat
+
+    if "Uunimakkara" in kaikkiRuoka[paiva][0]:
+      kaikkiRuoka[paiva][0]=kaikkiRuoka[paiva][0].replace("Uunimakkara","UUUNIMAKKAARAAAAOUUUUYHJEAAAAHBOYYYYYYY")
   return viikonRuuat,kaikkiRuoka
-    #viikonRuuat["ma"][0] on Maanantai normiruoka
-    #viikonRuuat["ti"][1] on Tiistai kasvisruoka
+    #kaikkiRuoka["ma"][0] on Maanantai normiruoka
+    #kaikkiRuoka["ti"][1] on Tiistai kasvisruoka
     #päivina ma-pe ja joka päivälle kasvis ja normi ruoka
 
 timez=datetime.timezone(datetime.timedelta(hours=2))
@@ -138,7 +141,7 @@ async def viikonlistaviesti(lähetysid): #viikonlista funktiona jotta voi lähet
         for i in range(1,6):
           embed.add_field(name=päivät[i][0]+" lounas:", value=kaikkiRuoka[päivät[i][1]][0], inline=True) #Lisää jokaisen päivän 2 ruokafieldiä
           embed.add_field(name=päivät[i][0]+" kasvislounas:", value=kaikkiRuoka[päivät[i][1]][1], inline=True)
-          if any(jr in kaikkiRuoka[päivät[i][1]][0] for jr in jälkiruuat): #kattoo onko pullaa, jos on, rivin kolmas field ei ole tyhjä
+          if any(jr in kaikkiRuoka[päivät[i][1]][0] for jr in jälkiruuat): #kattoo onko jälkiruokaa, jos on, rivin kolmas field ei ole tyhjä
             match randint(0,4): #random viesti jälkiruuasta
               case 0:
                   tieto="Jälkiruokaa?!?!?"
@@ -173,7 +176,7 @@ async def viikonlistaviesti(lähetysid): #viikonlista funktiona jotta voi lähet
         else: #jos on talvikausi
           embed.set_footer(text=str(datetime.date(datetime.date.today().year,12,22).isocalendar().week-datetime.date.today().isocalendar().week) + " viikkoa joululomaan")
         msg=await kanava.send("<:nomnom_onni:1020763115266248774>",embed=embed) #lähettää onnin + embedin samassa viestissä
-        if guil.arviointi==True: #jos lähetetään ict21 servulle
+        if guil.arviointi==True: #jos lähetetään arvioitavalle servulle
           ruokaviesti = Viesti() #viestiobjekti
           ruokaviestit[msg.id] = ruokaviesti #lisätään objekti dictiin
           await msg.add_reaction("0️⃣")
@@ -206,7 +209,7 @@ async def on_message(message):
           guildTiedosto=open("Guilds.txt","a")
           guildTiedosto.write(str(message.channel.id)+" "+uusiID+" "+uusiRuokala+" "+str(uusiArviointi)+" "+splitmessage[3]+"\n")
           guildTiedosto.close()
-          await message.channel.send("Guild added"+uusiID+uusiRuokala)
+          await message.channel.send("Ruokala lisätty!")
 
 #käyttäjä lisää reaktion
 @client.event
